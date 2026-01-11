@@ -1,6 +1,7 @@
 streamlit
 chromadb
 sentence-transformers
-google-generativeai
+google-genai
 beautifulsoup4
 requests
+
