@@ -1,8 +1,5 @@
-from google import genai
-from google.genai import types
-import streamlit as st
-API_KEY = st.secrets["GEMINI_API_KEY"]
-client = genai.Client(api_key=API_KEY)
+import google.generativeai as genai
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 
 import streamlit as st
@@ -115,6 +112,8 @@ st.set_page_config(
     page_icon="🤖",
     layout="centered"
 )
+st.write("DB exists:", os.path.exists("chroma_db/chroma.sqlite3"))
+
 
 # ================== TIÊU ĐỀ ==================
 st.title("🤖 Chatbot tư vấn thủ tục hành chính trẻ em dưới 6 tuổi")
