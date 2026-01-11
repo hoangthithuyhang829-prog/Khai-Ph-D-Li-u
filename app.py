@@ -1,5 +1,9 @@
-import google.generativeai as genai
-genai.configure(api_key="AIzaSyAfFwFRRwAINl-xgXW6vgyO3baR0d1WikA")
+from google import genai
+from google.genai import types
+import streamlit as st
+API_KEY = st.secrets["GEMINI_API_KEY"]
+client = genai.Client(api_key=API_KEY)
+
 
 import streamlit as st
 import json
@@ -16,7 +20,7 @@ genai.configure(api_key="AIzaSyAfFwFRRwAINl-xgXW6vgyO3baR0d1WikA")
 JSON_FILE = "/content/drive/RAG/all_procedures_normalized.json"  # Đường dẫn file JSON (sau chunk rule-based)
 CHROMA_DB_PATH = "chroma_db"  # Thư mục lưu vector DB
 COLLECTION_NAME = "dichvucong_rag"
-GEMINI_MODEL = "gemini-2.5-flash"  # Hoặc "gemini-1.5-pro"
+GEMINI_MODEL = "gemini-1.5-flash"  # Hoặc "gemini-1.5-pro"
 
 @st.cache_resource
 def get_embedding_function():
@@ -98,8 +102,10 @@ YÊU CẦU ĐỊNH DẠNG:
     Trả lời bằng tiếng Việt, có đánh số nếu là danh sách, và trích dẫn nguồn rõ ràng (tên block, URL):
     """
 
-    model = genai.GenerativeModel(GEMINI_MODEL)
-    response = model.generate_content(prompt, stream=True)
+    response = client.models.generate_content(
+    model=GEMINI_MODEL,
+    contents=prompt
+)
 
     return response
 
@@ -275,23 +281,19 @@ if prompt:
         st.markdown(prompt)
 
     # ================== GỌI BACKEND (GIỮ NGUYÊN) ==================
-    with st.chat_message("assistant"):
-        full_response = ""
-        message_placeholder = st.empty()
-
-        try:
-            response = query_rag(prompt, st.session_state.messages, top_k)
-            for chunk in response:
-                if chunk.text:
-                    full_response += chunk.text
-                    message_placeholder.markdown(full_response)
-            message_placeholder.markdown(full_response)
-        except Exception as e:
-            full_response = f"Lỗi khi gọi Gemini: {str(e)}"
-            message_placeholder.error(full_response)
 
 
     # Lưu câu trả lời
     st.session_state.messages.append(
         {"role": "assistant", "content": full_response}
     )
+with st.chat_message("assistant"):
+    message_placeholder = st.empty()
+
+    try:
+        answer = query_rag(prompt, st.session_state.messages, top_k)
+        message_placeholder.markdown(answer)
+        full_response = answer
+    except Exception as e:
+        full_response = f"Lỗi khi gọi Gemini: {str(e)}"
+        message_placeholder.error(full_response)
