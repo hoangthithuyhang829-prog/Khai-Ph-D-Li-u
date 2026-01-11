@@ -1,7 +1,7 @@
-streamlit
-chromadb
-sentence-transformers
+streamlit>=1.30
+chromadb>=0.4.24
+sentence-transformers>=2.2.2
+torch
 google-generativeai
 beautifulsoup4
 requests
-
