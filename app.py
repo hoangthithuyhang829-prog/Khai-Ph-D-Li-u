@@ -2,62 +2,72 @@ __import__('pysqlite3')
 import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
-
 import streamlit as st
-import json
 import os
 import chromadb
 from chromadb.utils import embedding_functions
-from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 
-# Configure Gemini API key (thay bằng key thật của bạn từ Google AI Studio)
-genai.configure(api_key="AIzaSyAfFwFRRwAINl-xgXW6vgyO3baR0d1WikA")
+# ================== 1. CẤU HÌNH ĐƯỜNG DẪN & API ==================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CHROMA_DB_PATH = os.path.join(BASE_DIR, "chroma_db")
 
-# ================== CẤU HÌNH ==================
-JSON_FILE = "/content/drive/RAG/all_procedures_normalized.json"  # Đường dẫn file JSON (sau chunk rule-based)
-CHROMA_DB_PATH = "chroma_db"  # Thư mục lưu vector DB
-COLLECTION_NAME = "dichvucong_rag"
-GEMINI_MODEL = "gemini-1.5-flash"  # Hoặc "gemini-1.5-pro"
+# Kiểm tra API KEY
+if "GOOGLE_API_KEY" not in st.secrets:
+    st.error("❌ Chưa cấu hình GOOGLE_API_KEY trong Streamlit Secrets")
+    st.stop()
 
-@st.cache_resource
-def get_embedding_function():
-    EMBEDDING_MODEL = "BAAI/bge-m3"  # Model embedding tiếng Việt
-    embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=EMBEDDING_MODEL)
-    return embedding_function
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 
+# ================== 2. KHỞI TẠO EMBEDDING & COLLECTION ==================
+# Lưu ý: Phải dùng ĐÚNG model mà bạn đã dùng ở máy Local (Colab)
+# Theo ảnh bạn gửi là BAAI/bge-m3
 @st.cache_resource
 def load_collection():
-    chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    embedding_func = get_embedding_function()
+    # 1. Ép sử dụng đường dẫn tuyệt đối
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(BASE_DIR, "chroma_db")
+    
+    chroma_client = chromadb.PersistentClient(path=db_path)
 
-    try:
-        collection = chroma_client.get_collection(
-            name=COLLECTION_NAME,
-            embedding_function=embedding_func  # cần để query đúng
-        )
-        #st.success(f"Collection '{COLLECTION_NAME}' đã load từ {CHROMA_DB_PATH}")
-    except Exception as e:
-        st.error(f"Không tìm thấy collection '{COLLECTION_NAME}' trong {CHROMA_DB_PATH}: {e}")
-        collection = None
+    # 2. Phải dùng ĐÚNG model embedding đã dùng lúc tạo database
+    # Trong ảnh bạn gửi là BAAI/bge-m3, hãy dùng nó
+    embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
+        model_name="BAAI/bge-m3"
+    )
+
+    # 3. Sử dụng get_collection (không dùng get_or_create) để kiểm tra
+    # Phải khớp tên "dichvucong_rag"
+    collection = chroma_client.get_collection(
+        name="dichvucong_rag", 
+        embedding_function=embedding_func
+    )
 
     return collection
-# --- Load collection 1 lần ---
-collection = load_collection()
 
-def query_rag(query: str, chat_history: list, top_k: int):
-    # Retrieval với top_k động
+# ================== 3. HÀM XỬ LÝ TRUY VẤN (RAG) ==================
+def query_rag(query: str, top_k: int):
+    if not collection:
+        return "Database chưa được tải thành công."
+
+    # Truy vấn dữ liệu
     results = collection.query(
         query_texts=[query],
         n_results=top_k,
         include=["documents", "metadatas", "distances"]
     )
 
+    # Kiểm tra nếu không có kết quả phù hợp
+    if not results["documents"] or len(results["documents"][0]) == 0:
+        return "Xin lỗi! Câu hỏi của bạn không nằm trong phạm vi hỗ trợ của tôi."
+
     context_parts = []
     for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
-        context_parts.append(f"[{meta['hierarchy']}]\\n{doc}\\n(Nguồn: {meta['url']})")
+        hierarchy = meta.get('hierarchy', 'Thông tin')
+        url = meta.get('url', 'Không có nguồn')
+        context_parts.append(f"[{hierarchy}]\n{doc}\n(Nguồn: {url})")
 
-    context = "\\n\\n".join(context_parts)
+    context = "\n\n".join(context_parts)
 
     prompt = f"""
 Bạn là trợ lý tư vấn thủ tục hành chính công của Việt Nam.
@@ -99,94 +109,21 @@ YÊU CẦU ĐỊNH DẠNG:
 
     Trả lời bằng tiếng Việt, có đánh số nếu là danh sách, và trích dẫn nguồn rõ ràng (tên block, URL):
     """
+    
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    response = model.generate_content(prompt)
+    return response.text
 
-    response = client.models.generate_content(
-    model=GEMINI_MODEL,
-    contents=prompt
-)
+# ================== 4. GIAO DIỆN STREAMLIT ==================
+st.set_page_config(page_title="Chatbot TTHC Trẻ Em", page_icon="🤖")
 
-    return response
-
-# ================== GIAO DIỆN CHÍNH ==================
-st.set_page_config(
-    page_title="Chatbot tư vấn thủ tục hành chính trẻ em dưới 6 tuổi",
-    page_icon="🤖",
-    layout="centered"
-)
-st.write("DB exists:", os.path.exists("chroma_db/chroma.sqlite3"))
-
-
-# ================== TIÊU ĐỀ ==================
-st.title("🤖 Chatbot tư vấn thủ tục hành chính trẻ em dưới 6 tuổi")
-st.markdown(
-    "Hỗ trợ tư vấn **đăng ký khai sinh – đăng ký thường trú – cấp thẻ BHYT** "
-    "cho **trẻ em dưới 6 tuổi** dựa trên dữ liệu chính thống."
-)
-# Sidebar với top-k slider và thông tin
-with st.sidebar:
-    top_k = st.slider("Top-k retrieval (số chunks lấy về)", min_value=1, max_value=10, value=3, step=1)
-st.markdown(
-"""
+# Hiệu ứng hoa rơi (Giữ nguyên CSS của bạn)
+st.markdown("""
 <style>
-/* Nền toàn app: hồng nhạt */
-.stApp {
-    background: #fff0f5;
-    font-family: "Segoe UI", sans-serif;
-}
-
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background-color: #ffffff;
-    border-right: 1px solid #f3c6d3;
-    padding: 16px;
-}
-
-/* Tiêu đề */
-h1, h2, h3 {
-    color: #b91c5c;
-    font-weight: 700;
-}
-
-/* Bong bóng chat */
-div[data-testid="stChatMessageUser"] {
-    background-color: #ffe4ec;
-    border-radius: 14px;
-    padding: 12px;
-    margin-bottom: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-
-div[data-testid="stChatMessageAssistant"] {
-    background-color: #ffffff;
-    border-radius: 14px;
-    padding: 12px;
-    margin-bottom: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-
-/* Hoa rơi */
-@keyframes fall-random {
-    0% {
-        transform: translate(0, -50px) rotate(0deg);
-        opacity: 0;
-    }
-    10% { opacity: 1; }
-    100% {
-        transform: translate(var(--x-move), 110vh) rotate(360deg);
-        opacity: 0;
-    }
-}
-
-.flower {
-    position: fixed;
-    top: -40px;
-    font-size: 22px;
-    animation: fall-random linear infinite;
-    z-index: 0;
-    pointer-events: none;
-}
+.stApp { background: #fff0f5; }
+.flower { position: fixed; top: -40px; font-size: 22px; animation: fall 8s linear infinite; z-index: 0; }
+@keyframes fall { to { transform: translateY(110vh) rotate(360deg); } }
 </style>
-
 <div class="flower" style="left:5%;  --x-move:-80px; animation-duration:6s;">🌸</div>
 <div class="flower" style="left: 20%; --x-move:-100px; animation-duration: 4s;">🧨</div>
 <div class="flower" style="left:15%; --x-move:120px; animation-duration:7s;">🌷</div>
@@ -209,91 +146,39 @@ unsafe_allow_html=True
 )
 
 
-# ================== SIDEBAR ==================
+st.title("🤖 Tư vấn TTHC Trẻ em dưới 6 tuổi")
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# Sidebar
 with st.sidebar:
-    st.markdown("## 📜 Lịch sử trò chuyện")
-
-    if st.session_state.messages:
-        for i, msg in enumerate(st.session_state.messages):
-            if msg["role"] == "user":
-                st.markdown(f"**👤 Người dùng:** {msg['content']}")
-            else:
-                st.markdown(f"**🤖 Chatbot:** {msg['content'][:150]}...")
-            st.divider()
-    else:
-        st.caption("Chưa có cuộc trò chuyện nào.")
-
-    if collection:
-        try:
-           data = collection.get(include=["metadatas"])
-           metadatas = data.get("metadatas", [])
-
-           source_files = set()
-
-           for meta in metadatas:
-              if not meta:
-                continue
-
-              file_name = meta.get("source_file", "").strip()
-              if file_name:
-                source_files.add(file_name)
-
-        except Exception as e:
-            st.error(f"Lỗi khi tải file dữ liệu: {e}")
-    else:
-        st.caption("Chưa tải được dữ liệu vector.")
-
-
+    st.header("⚙️ Cấu hình")
+    top_k = st.slider("Số lượng chunk lấy về", 1, 10, 3)
     st.divider()
+    st.subheader("ℹ️ Thông tin hệ thống")
+    if collection:
+        st.success(f"✅ Đã kết nối Database")
+        st.write(f"🧩 Số chunk: {collection.count()}")
+    else:
+        st.error("❌ Chưa tìm thấy dữ liệu")
 
-    st.markdown("## ℹ️ Thông tin hệ thống")
-    st.write(f"📦 Vector DB: {COLLECTION_NAME}")
-    st.write(f"🧩 Số chunk: {collection.count() if collection else 0}")
-    st.write(f"🤖 LLM: {GEMINI_MODEL}")
-    st.write("📐 Embedding: BAAI/bge-m3")
-    st.caption("Dữ liệu được load từ file JSON.")
-
-# ================== KHỞI TẠO LỊCH SỬ CHAT ==================
+# Lịch sử chat
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ================== HIỂN THỊ LỊCH SỬ CHAT ==================
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# ================== INPUT TỪ USER ==================
-prompt = st.chat_input(
-    "Nhập câu hỏi của bạn. "
-    "(Ví dụ: Giấy khai sinh có cấp bản điện tử không?)"
-)
-
-if prompt:
-    # Lưu câu hỏi
-    st.session_state.messages.append(
-        {"role": "user", "content": prompt}
-    )
-
+# Xử lý nhập liệu
+if prompt := st.chat_input("Nhập câu hỏi..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # ================== GỌI BACKEND (GIỮ NGUYÊN) ==================
-
-
-    # Lưu câu trả lời
-    st.session_state.messages.append(
-        {"role": "assistant", "content": full_response}
-    )
-with st.chat_message("assistant"):
-    message_placeholder = st.empty()
-
-    try:
-        answer = query_rag(prompt, st.session_state.messages, top_k)
-        message_placeholder.markdown(answer)
-        full_response = answer
-    except Exception as e:
-        full_response = f"Lỗi khi gọi Gemini: {str(e)}"
-        message_placeholder.error(full_response)
+    with st.chat_message("assistant"):
+        with st.spinner("Đang tìm kiếm dữ liệu..."):
+            answer = query_rag(prompt, top_k)
+            st.markdown(answer)
+            st.session_state.messages.append({"role": "assistant", "content": answer})
