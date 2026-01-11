@@ -1,14 +1,6 @@
 streamlit
 chromadb
 sentence-transformers
-google-generativeai
+google-geni
 beautifulsoup4
 requests
-pandas
-urlparse
-hashlib
-uuid
-embedding_functions
-date
-json
-re
