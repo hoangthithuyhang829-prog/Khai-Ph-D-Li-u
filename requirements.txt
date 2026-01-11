@@ -1,7 +1,9 @@
 streamlit
 chromadb
+google-generativeai
 sentence-transformers
-google-genai
-beautifulsoup4
+html2text
 requests
-
+beautifulsoup4
+langchain-text-splitters
+PyMuPDF
