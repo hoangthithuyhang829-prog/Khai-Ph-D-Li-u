@@ -1,10 +1,16 @@
 import streamlit as st
+
+st.set_page_config(
+    page_title="Chatbot tư vấn thủ tục hành chính trẻ em dưới 6 tuổi",
+    page_icon="🤖",
+    layout="centered"
+)
+
 import os
 import json
 
 import chromadb
 from chromadb.utils import embedding_functions
-from sentence_transformers import SentenceTransformer
 
 # ====== CẤU HÌNH ======
 CHROMA_DB_PATH = "./chroma_db"
@@ -45,12 +51,11 @@ def get_embedding_function():
     embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="BAAI/bge-m3")
     return embedding_function
 
-@st.cache_resource
 def load_collection():
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
     embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="all-MiniLM-L6-v2"
+        model_name="BAAI/bge-m3"
     )
 
     collection = chroma_client.get_or_create_collection(
