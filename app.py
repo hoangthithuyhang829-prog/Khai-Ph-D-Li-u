@@ -37,7 +37,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 # ================== CẤU HÌNH ==================
 JSON_FILE = "/content/drive/RAG/all_procedures_normalized.json"  # Đường dẫn file JSON (sau chunk rule-based)
 CHROMA_DB_PATH = "chroma_db"  # Thư mục lưu vector DB
-COLLECTION_NAME = "dichvucong_rag_v2"
+COLLECTION_NAME = "dichvucong_rag_reset"
 GEMINI_MODEL = "gemini-2.5-flash"  # Hoặc "gemini-1.5-pro"
 
 @st.cache_resource
@@ -46,7 +46,6 @@ def get_embedding_function():
     embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="BAAI/bge-m3")
     return embedding_function
 
-@st.cache_resource
 def load_collection():
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
