@@ -32,7 +32,8 @@ if "GOOGLE_API_KEY" not in st.secrets:
 
 # ====== CẤU HÌNH & KHỞI TẠO GEMINI ======
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-#cái xóa
+model = genai.GenerativeModel('gemini-1.5-flash')
+
 
 # ====== CÁCH GỌI KHI ĐẶT CÂU HỎI ======
 # response = model.generate_content("Câu hỏi của bạn")
