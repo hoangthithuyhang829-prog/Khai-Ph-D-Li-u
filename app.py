@@ -1,12 +1,5 @@
 
 import streamlit as st
-
-st.set_page_config(
-    page_title="Chatbot tư vấn thủ tục hành chính trẻ em dưới 6 tuổi",
-    page_icon="🤖",
-    layout="centered"
-)
-
 import os
 import json
 
