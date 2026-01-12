@@ -1,4 +1,3 @@
-
 import streamlit as st
 import os
 import json
@@ -27,7 +26,6 @@ if "GOOGLE_API_KEY" not in st.secrets:
 genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-
 # ====== CÁCH GỌI KHI ĐẶT CÂU HỎI ======
 # response = model.generate_content("Câu hỏi của bạn")
 # st.write(response.text)
@@ -46,9 +44,9 @@ def get_embedding_function():
     EMBEDDING_MODEL = "BAAI/bge-m3"  # Model embedding tiếng Việt
     embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="BAAI/bge-m3")
     return embedding_function
-    
+
 @st.cache_resource
-def get_embedding_function():
+def load_collection():
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
     embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
