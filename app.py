@@ -53,7 +53,8 @@ def get_embedding_function():
     embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="BAAI/bge-m3")
     return embedding_function
     
-
+@st.cache_resource
+def get_embedding_function():
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
 
     embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
