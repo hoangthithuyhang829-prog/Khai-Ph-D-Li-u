@@ -37,7 +37,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 JSON_FILE = "/content/drive/RAG/all_procedures_normalized.json"  # Đường dẫn file JSON (sau chunk rule-based)
 CHROMA_DB_PATH = "chroma_db"  # Thư mục lưu vector DB
 COLLECTION_NAME = "dichvucong_rag"
-GEMINI_MODEL = "gemini-2.5-flash"  # Hoặc "gemini-1.5-pro"
+GEMINI_MODEL = "gemini-1.5-flash"  # Hoặc "gemini-1.5-pro"
 
 @st.cache_resource
 def get_embedding_function():
